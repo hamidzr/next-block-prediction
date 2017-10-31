@@ -7,6 +7,17 @@ import time
 from nltk import word_tokenize
 from nltk.util import ngrams
 from collections import Counter
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-v", "--verbose", help="increase output verbosity",
+                    action="store_true")
+parser.add_argument("-n", "--ngrams", help="ngram parameter", type=int)
+parser.add_argument("--tokens", help="tokens pickle file address")
+args = parser.parse_args()
+
+if args.verbose:
+   print("verbosity turned on")
 
 # get tokens
 text = "I need to write a program in NLTK that breaks a corpus (a large collection of txt files) into unigrams, bigrams, trigrams, fourgrams and fivegrams. I need to write a program in NLTK that breaks a corpus"
@@ -14,18 +25,13 @@ text = "I need to write a program in NLTK that breaks a corpus (a large collecti
 counter = 1
 tokens = []
 
-if (len(sys.argv) > 1):
-    tokensPath = sys.argv[1];
-    with open(tokensPath, 'rb') as f:
+if (args.tokens):
+    with open(args.tokens, 'rb') as f:
         tokens = pickle.load(f)
 
 print('loaded', len(tokens), 'tokens')
 
 # # create n-grams
-# bigrams = ngrams(tokens,2)
-# # trigrams = ngrams(tokens,3)
-# # fourgrams = ngrams(tokens,4)
-# # fivegrams = ngrams(tokens,5)
 
 # gramStats = Counter(bigrams)
 # print(gramStats.most_common(500))
@@ -42,12 +48,12 @@ print('loaded', len(tokens), 'tokens')
 #     for block, count in results:
 #         print(block, round(count/totalCount, 3))
 
-trigrams = ngrams(tokens,3)
-# fourgrams = ngrams(tokens,4)
-# fivegrams = ngrams(tokens,5)
+print('calculating', args.ngrams, 'grams')
+gramed = ngrams(tokens,args.ngrams)
 
-gramStats = Counter(trigrams)
-print(gramStats.most_common(200)
+# TODO analyze grams
+gramStats = Counter(gramed)
+print(gramStats.most_common(200))
 
 while True:
     word = input('input words ')
@@ -59,6 +65,6 @@ while True:
             results.append([gram[2], count])
     results.sort(key=lambda x: x[1])
     for block, count in results[0:10]:
-        print(block, round(count/totalCount, 3), count)
+        print(block, round(count/totalCount, 10), count)
 
 # TODO calculate the sparsity
