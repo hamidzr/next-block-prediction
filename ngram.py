@@ -17,7 +17,7 @@ parser.add_argument("--tokens", help="tokens pickle file address")
 args = parser.parse_args()
 
 if args.verbose:
-   print("verbosity turned on")
+    print("verbosity turned on")
 
 # get tokens
 text = "I need to write a program in NLTK that breaks a corpus (a large collection of txt files) into unigrams, bigrams, trigrams, fourgrams and fivegrams. I need to write a program in NLTK that breaks a corpus"
@@ -28,6 +28,8 @@ tokens = []
 if (args.tokens):
     with open(args.tokens, 'rb') as f:
         tokens = pickle.load(f)
+else:
+    print('tokens are missing, use the provided tokenizer.')
 
 print('loaded', len(tokens), 'tokens')
 

@@ -1,6 +1,7 @@
 #!/bin/python3.6
 import nltk
 import sys
+from tqdm import tqdm
 import pickle
 from nltk import word_tokenize
 from nltk.util import ngrams
@@ -13,13 +14,10 @@ parser.add_argument("output", help="generated dict of tokens as a pickle file")
 args = parser.parse_args()
 
 tokens = []
-counter = 1
 
 with open(args.textFile, 'r') as myfile:
-    for line in myfile.readlines():
+    for line in tqdm(myfile.readlines()):
         tokens += nltk.word_tokenize(line)
-        if (counter % 1000) == 0: print(counter)
-        counter +=1
 
 print('finished tokenizing', len(tokens), 'tokens')
 with open(args.output, 'wb') as f:
