@@ -1,5 +1,6 @@
 #!/bin/python3.6
 import nltk
+import math
 import sys
 from tqdm import tqdm
 import pickle
@@ -38,3 +39,30 @@ else:
     with open(args.pickleFile, 'wb') as f:
         pickle.dump(tokens, f)
 
+def plotFrequencyDist(tokenCounter, num_blocks=50, scaled=False):
+    labels, counts = list(map(list, zip(*tokenCounter.most_common(num_blocks))))
+
+    plt.style.use('ggplot')
+    x_pos = [i for i, _ in enumerate(labels)]
+
+    plt.xlabel("Block")
+    plt.ylabel("Count")
+    plt.title("Block Frequency")
+    plt.xticks(x_pos, labels)
+    plt.xticks(rotation='vertical')
+
+    if scaled:
+        counts = list(map(lambda x: math.log(x,2), counts)) # log base count
+        plt.ylabel("Log-count")
+
+    plt.bar(x_pos, counts, color='green')
+    plt.show()
+
+# calcuate some stats
+tokenStats = Counter(tokens)
+LOW_THRESHOLD = 1 # blocks with lesser counts will be considered low freq
+# TODO fix lowFreq filter
+lowFreqs = list(filter(lambda pair: pair[1] >= LOW_THRESHOLD, tokenStats.items()))
+print('# Unique blocks', len(tokenStats.items()))
+print('# Low freq blocks', len(lowFreqs))
+plotFrequencyDist(tokenStats)
