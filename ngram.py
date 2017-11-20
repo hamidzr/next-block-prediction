@@ -3,12 +3,16 @@ import nltk
 import math
 import numpy as np
 import sys
+from tqdm import tqdm
 import pickle
 import time
 from nltk import word_tokenize
 from nltk.util import ngrams
 from collections import Counter
 import argparse
+from joblib import Parallel, delayed
+import multiprocessing
+num_cores = multiprocessing.cpu_count()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", help="increase output verbosity",
@@ -79,13 +83,25 @@ def perplexity(blockSequence):
         invProb = 1.0/probs[val]
         sequenceProbabilityInv = sequenceProbabilityInv * invProb
     perplexity = (sequenceProbabilityInv)**(1.0/ numWords)
-    print(perplexity)
     return perplexity
 
-while True:
-    # calculate probabilities given a sequence of words
-    seq = input('pass a sequence: ')
-    seq = seq.split(' ')
-    # simpleProbabilities(seq, gramStats)
-    perplexity(seq, gramStats)
+def evaluate(testSet):
+    # tokenize each sentence of test set
+    with open(testSet, 'r') as f:
+        sentenceTokens = Parallel(n_jobs=num_cores)(delayed(nltk.word_tokenize)(line) for line in tqdm(f.readlines()))
+    # calculate perplexity for each sent
+    print('calculating perplexities')
+    perps = Parallel(n_jobs=num_cores)(delayed(perplexity)(sent) for sent in tqdm(sentenceTokens))
+    avg = sum(perps) / float(len(perps))
+    print(avg)
+    return avg
 
+def interactiveInspection():
+    while True:
+        # calculate probabilities given a sequence of words
+        seq = input('pass a sequence: ')
+        seq = seq.split(' ')
+        # simpleProbabilities(seq, gramStats)
+        perplexity(seq)
+
+evaluate('data/sample.txt')
