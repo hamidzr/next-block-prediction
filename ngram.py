@@ -1,5 +1,6 @@
 #!/bin/python3.6
 import nltk
+import math
 import numpy as np
 import sys
 import pickle
@@ -19,10 +20,6 @@ args = parser.parse_args()
 if args.verbose:
     print("verbosity turned on")
 
-# get tokens
-text = "I need to write a program in NLTK that breaks a corpus (a large collection of txt files) into unigrams, bigrams, trigrams, fourgrams and fivegrams. I need to write a program in NLTK that breaks a corpus"
-
-counter = 1
 tokens = []
 
 if (args.tokens):
@@ -33,40 +30,52 @@ else:
 
 print('loaded', len(tokens), 'tokens')
 
-# # create n-grams
-
-# gramStats = Counter(bigrams)
-# print(gramStats.most_common(500))
-
-# while True:
-#     word = input('input words ')
-#     results = []
-#     totalCount = 0
-#     for gram, count in gramStats.items():
-#         if (gram[0] == word):
-#             totalCount += count
-#             results.append([gram[1], count])
-#     results.sort(key=lambda x: x[1])
-#     for block, count in results:
-#         print(block, round(count/totalCount, 3))
-
 print('calculating', args.ngrams, 'grams')
 gramed = ngrams(tokens,args.ngrams)
 
-# TODO analyze grams
+# TODO add starting and ending WORDs ?
 gramStats = Counter(gramed)
-print(gramStats.most_common(200))
+print(gramStats.most_common(50))
+
+# idea sequence is ngramSize-1
+# returns a dictionary of probabilities
+def simpleProbabilities(sequence, ngramStats):
+    print('seq', sequence)
+    windowSize = args.ngrams-1
+    if len(sequence) <  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
+    results = []
+    probabilities = {}
+    totalCount = 0
+    for gram, count in ngramStats.items():
+        if (list(gram[0:windowSize]) == sequence[-windowSize:]):
+            totalCount += count
+            results.append([gram[-1:][0], count])
+    results.sort(key=lambda x: x[1])
+    for candidateBlock, count in results:
+        probab = round(count/totalCount, 10)
+        probabilities[candidateBlock] = probab
+    # or return a sorted list of (block, prob) pairs  
+    return probabilities
+
+# calculates the perplexity for a sequence of blocks
+def perplexity(blockSequence, ngramStats):
+    windowSize = args.ngrams -1
+    numWords = len(blockSequence)
+    sequenceProbabilityInv = 1;
+    # calculate sequence prob inv
+    for idx, val in enumerate(blockSequence):
+        if idx < windowSize: continue # skip the first n blocks. change if you added starting padding
+        probs = simpleProbabilities(blockSequence[idx-windowSize:idx], ngramStats)
+        invProb = 1.0/probs[val]
+        sequenceProbabilityInv = sequenceProbabilityInv * invProb
+    perplexity = (sequenceProbabilityInv)**(1.0/ numWords)
+    print(perplexity)
+    return perplexity
 
 while True:
-    word = input('input words ')
-    results = []
-    totalCount = 0
-    for gram, count in gramStats.items():
-        if (' '.join([gram[0], gram[1]]) == word):
-            totalCount += count
-            results.append([gram[2], count])
-    results.sort(key=lambda x: x[1])
-    for block, count in results[0:10]:
-        print(block, round(count/totalCount, 10), count)
+    # calculate probabilities given a sequence of words
+    seq = input('pass a sequence: ')
+    seq = seq.split(' ')
+    # simpleProbabilities(seq, gramStats)
+    perplexity(seq, gramStats)
 
-# TODO calculate the sparsity
