@@ -33,20 +33,30 @@ print('loaded', len(tokens), 'tokens')
 print('calculating', args.ngrams, 'grams')
 gramed = ngrams(tokens,args.ngrams)
 
-# TODO add starting and ending WORDs ?
+# TODO IMP add starting and ending WORDs ?
+# NOTE alan intori tahe jomle ghabli chasbide be badi
 gramStats = Counter(gramed)
 print(gramStats.most_common(50))
 
+# memoize helper
+def memoize(f):
+    memo = {}
+    def helper(x):
+        if x not in memo:
+            memo[x] = f(x)
+        return memo[x]
+    return helper
+
+# TODO add kney and add-1 smoothing
 # idea sequence is ngramSize-1
 # returns a dictionary of probabilities
-def simpleProbabilities(sequence, ngramStats):
-    print('seq', sequence)
+def simpleProbabilities(sequence):
     windowSize = args.ngrams-1
     if len(sequence) <  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
     results = []
     probabilities = {}
     totalCount = 0
-    for gram, count in ngramStats.items():
+    for gram, count in gramStats.items():
         if (list(gram[0:windowSize]) == sequence[-windowSize:]):
             totalCount += count
             results.append([gram[-1:][0], count])
@@ -58,14 +68,14 @@ def simpleProbabilities(sequence, ngramStats):
     return probabilities
 
 # calculates the perplexity for a sequence of blocks
-def perplexity(blockSequence, ngramStats):
+def perplexity(blockSequence):
     windowSize = args.ngrams -1
     numWords = len(blockSequence)
     sequenceProbabilityInv = 1;
     # calculate sequence prob inv
     for idx, val in enumerate(blockSequence):
         if idx < windowSize: continue # skip the first n blocks. change if you added starting padding
-        probs = simpleProbabilities(blockSequence[idx-windowSize:idx], ngramStats)
+        probs = simpleProbabilities(blockSequence[idx-windowSize:idx])
         invProb = 1.0/probs[val]
         sequenceProbabilityInv = sequenceProbabilityInv * invProb
     perplexity = (sequenceProbabilityInv)**(1.0/ numWords)

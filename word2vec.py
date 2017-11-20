@@ -1,4 +1,4 @@
-#! env python3.6
+#!/usr/bin/env python3.6
 from tqdm import tqdm #progress bar
 import pandas as pd
 import numpy as np
