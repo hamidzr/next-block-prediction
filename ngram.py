@@ -24,24 +24,17 @@ args = parser.parse_args()
 if args.verbose:
     print("verbosity turned on")
 
-tokens = []
+def loadTokens():
+    tokens = []
+    if (args.tokens):
+        with open(args.tokens, 'rb') as f:
+            tokens = pickle.load(f)
+    else:
+        print('tokens are missing, use the provided tokenizer.')
 
-if (args.tokens):
-    with open(args.tokens, 'rb') as f:
-        tokens = pickle.load(f)
-else:
-    print('tokens are missing, use the provided tokenizer.')
+    print('loaded', len(tokens), 'tokens')
+    return tokens
 
-print('loaded', len(tokens), 'tokens')
-
-print('calculating', args.ngrams, 'grams')
-gramed = ngrams(tokens,args.ngrams)
-
-# TODO IMP add starting and ending WORDs ?
-# NOTE alan intori tahe jomle ghabli chasbide be badi
-gramStats = Counter(gramed)
-blockStats = Counter(tokens)
-print(gramStats.most_common(10))
 
 # memoize helper
 def memoize(f):
@@ -70,32 +63,35 @@ def countGramsStartingWith(sequence):
 # how many times this block came after seq
 @memoize
 def ngramsCount(seq, block):
-    # create the ngram tuple to lookup it's count
-    # if (len(seq) == args.ngrams):
-    #     seq[windowSize] = seq
-    # else:
-    #     seq.append(seq)
-    # c = tuple(seq)
-    # return gramStats[c]
     targetSeq = tuple(seq) + (block,)
     for gram, count in gramStats.items():
         if (gram == targetSeq): return count
     return 0
 
 
-
-# TODO add kney and add-1 smoothing
 # idea sequence is ngramSize-1
 # compute for a single word
-def simpleProbabilities(sequence, block):
+def noSmoothing(sequence, block):
     windowSize = args.ngrams-1
     if len(sequence) !=  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
     totalCount = countGramsStartingWith(sequence)
-    p = round(ngramsCount(sequence, block)/totalCount, 10)
+    blockCount = ngramsCount(sequence, block)
+    p = blockCount/float(totalCount)
     return p
 
+# TODO normalize the counts
+def addOneSmoothing(sequence, block):
+    windowSize = args.ngrams-1
+    if len(sequence) !=  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
+    totalCount = countGramsStartingWith(sequence)
+    blockCount = ngramsCount(sequence, block)
+    if (blockCount == 0): blockCount += 1
+    p = blockCount/float(totalCount)
+    return p
+
+
+
 ######### Kneser-Ney and Absolute Discounting ##########
-# TODO precompute
 # how likely is a block to appear as a novel continuation
 @memoize
 def continuationProbability(block):
@@ -121,7 +117,7 @@ def lambdaWeight(sequence):
 # sequence is one smaller in length from ngram
 # given sequence what is the probability of block following
 # Kneser-Ney smoothing
-def KNSmoothingProbabilities(sequence, block):
+def KNSmoothing(sequence, block):
     # absolute discounting value (different for low counts 1,2)
     windowSize = args.ngrams-1
     if (len(sequence) !=  windowSize): raise Exception('bad sequence length')
@@ -143,7 +139,7 @@ def perplexity(blockSequence):
     # calculate sequence prob inv
     for idx, val in enumerate(blockSequence):
         if idx < windowSize: continue # skip the first n blocks. change if you added starting padding
-        prob = KNSmoothingProbabilities(blockSequence[idx-windowSize:idx], val)
+        prob = probabilityFn(blockSequence[idx-windowSize:idx], val)
         invProb = 1.0/prob
         sequenceProbabilityInv = sequenceProbabilityInv * invProb
     perplexity = (sequenceProbabilityInv)**(1.0/ numWords)
@@ -165,7 +161,26 @@ def interactiveInspection():
         # calculate probabilities given a sequence of words
         seq = input('pass a sequence: ')
         seq = seq.split(' ')
-        # simpleProbabilities(seq, gramStats)
+        # probabilityFn(seq, gramStats)
         perplexity(seq)
+
+
+
+######### driver ##########
+
+# load block tokens
+tokens = loadTokens()
+
+# calculates ngrams and stats
+print('calculating', args.ngrams, 'grams')
+gramed = ngrams(tokens,args.ngrams)
+# TODO IMP add starting and ending WORDs ?
+# NOTE alan intori tahe jomle ghabli chasbide be badi
+gramStats = Counter(gramed)
+blockStats = Counter(tokens)
+print(gramStats.most_common(10))
+
+# set the desired probabilityFn
+probabilityFn = noSmoothing
 
 evaluate('data/sample.txt')
