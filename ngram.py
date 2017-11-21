@@ -40,6 +40,7 @@ gramed = ngrams(tokens,args.ngrams)
 # TODO IMP add starting and ending WORDs ?
 # NOTE alan intori tahe jomle ghabli chasbide be badi
 gramStats = Counter(gramed)
+blockStats = Counter(tokens)
 print(gramStats.most_common(50))
 
 # memoize helper
@@ -51,22 +52,36 @@ def memoize(f):
         return memo[x]
     return helper
 
+# helper count grams
+def countGramsStartingWith(sequence):
+    windowSize = len(sequence)
+    if windowSize >= args.ngrams : raise Exception('bad sequence length')
+    totalCount = 0
+    for gram, count in gramStats.items():
+        if (list(gram[0:windowSize]) == sequence[0:windowSize]):
+            totalCount += count
+    return totalCount
+
+# helper looksup ngram count of a seq + last block
+def ngramCount(seq, block):
+    # create the ngram tuple to lookup it's count
+    if (len(seq) == args.ngrams):
+        seq[windowSize] = seq
+    else:
+        seq.append(seq)
+    return gramStats[tuple(sequence)]
+
+
 # TODO add kney and add-1 smoothing
 # idea sequence is ngramSize-1
 # returns a dictionary of probabilities
 def simpleProbabilities(sequence):
     windowSize = args.ngrams-1
-    if len(sequence) <  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
-    results = []
+    if len(sequence) !=  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
     probabilities = {}
-    totalCount = 0
-    for gram, count in gramStats.items():
-        if (list(gram[0:windowSize]) == sequence[-windowSize:]):
-            totalCount += count
-            results.append([gram[-1:][0], count])
-    results.sort(key=lambda x: x[1])
-    for candidateBlock, count in results:
-        probab = round(count/totalCount, 10)
+    totalCount = countGramsStartingWith(sequence)
+    for candidateBlock in list(blockStats):
+        probab = round(ngramCount(sequence, candidateBlock)/totalCount, 10)
         probabilities[candidateBlock] = probab
     # or return a sorted list of (block, prob) pairs  
     return probabilities
