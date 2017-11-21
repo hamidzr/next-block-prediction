@@ -1,7 +1,7 @@
 # NextBlock prediction in NetsBlox
 
 ## Data
-snapAnalyzer
+snapAnalyzer [Github Repo](https://github.com/hamidzr)
     - parsing projects into words and sentences.
 tokenize and visualize the data
     - what are the probability distributions
@@ -13,3 +13,6 @@ tokenize and visualize the data
 - Word embedding, word2vec
     - dimensiality reduction for representation (T-SNE)
 - RNN with word2vec embeddings
+
+## Env Variables
+- `MAX_SCRIPT_SIZE` defaults to 40
