@@ -41,18 +41,22 @@ gramed = ngrams(tokens,args.ngrams)
 # NOTE alan intori tahe jomle ghabli chasbide be badi
 gramStats = Counter(gramed)
 blockStats = Counter(tokens)
-print(gramStats.most_common(50))
+print(gramStats.most_common(10))
 
 # memoize helper
 def memoize(f):
-    memo = {}
-    def helper(x):
-        if x not in memo:
-            memo[x] = f(x)
-        return memo[x]
-    return helper
+    cache = {}
+    def decorated(*args):
+        key = (f, str(args))
+        result = cache.get(key, None)
+        if result is None:
+            result = f(*args)
+            cache[key] = result
+        return result
+    return decorated
 
 # helper count grams
+@memoize
 def countGramsStartingWith(sequence):
     windowSize = len(sequence)
     if windowSize >= args.ngrams : raise Exception('bad sequence length')
@@ -63,28 +67,73 @@ def countGramsStartingWith(sequence):
     return totalCount
 
 # helper looksup ngram count of a seq + last block
-def ngramCount(seq, block):
+# how many times this block came after seq
+@memoize
+def ngramsCount(seq, block):
     # create the ngram tuple to lookup it's count
-    if (len(seq) == args.ngrams):
-        seq[windowSize] = seq
-    else:
-        seq.append(seq)
-    return gramStats[tuple(sequence)]
+    # if (len(seq) == args.ngrams):
+    #     seq[windowSize] = seq
+    # else:
+    #     seq.append(seq)
+    # c = tuple(seq)
+    # return gramStats[c]
+    targetSeq = tuple(seq) + (block,)
+    for gram, count in gramStats.items():
+        if (gram == targetSeq): return count
+    return 0
+
 
 
 # TODO add kney and add-1 smoothing
 # idea sequence is ngramSize-1
-# returns a dictionary of probabilities
-def simpleProbabilities(sequence):
+# compute for a single word
+def simpleProbabilities(sequence, block):
     windowSize = args.ngrams-1
     if len(sequence) !=  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
-    probabilities = {}
     totalCount = countGramsStartingWith(sequence)
-    for candidateBlock in list(blockStats):
-        probab = round(ngramCount(sequence, candidateBlock)/totalCount, 10)
-        probabilities[candidateBlock] = probab
-    # or return a sorted list of (block, prob) pairs  
-    return probabilities
+    p = round(ngramsCount(sequence, block)/totalCount, 10)
+    return p
+
+######### Kneser-Ney and Absolute Discounting ##########
+# TODO precompute
+# how likely is a block to appear as a novel continuation
+@memoize
+def continuationProbability(block):
+    # count how many different types block B compelets
+    novelCounts = 0
+    for gram, count in gramStats.items():
+        if (list(gram)[-1:][0] == block):
+            novelCounts += 1
+    return novelCounts/float(len(gramStats.items()))
+
+# number of single block types that can follow a sequence
+@memoize
+def lambdaWeight(sequence):
+    windowSize = args.ngrams-1
+    if len(sequence) !=  windowSize: raise Exception('bad sequence length')
+    uniqueCount = 0
+    for gram, count in gramStats.items():
+        if (list(gram)[0:windowSize] == sequence):
+            uniqueCount += 1
+    return uniqueCount
+
+
+# sequence is one smaller in length from ngram
+# given sequence what is the probability of block following
+# Kneser-Ney smoothing
+def KNSmoothingProbabilities(sequence, block):
+    # absolute discounting value (different for low counts 1,2)
+    windowSize = args.ngrams-1
+    if (len(sequence) !=  windowSize): raise Exception('bad sequence length')
+    totalCount = countGramsStartingWith(sequence)
+    blockCount = ngramsCount(sequence, block) # how many times this block was next in seq
+    d = 0.75
+    if (blockCount < 2): d = 0.4
+    discountedGram = (blockCount - d)/float(totalCount)
+    prob = discountedGram + lambdaWeight(sequence)*continuationProbability(block)
+    return prob
+
+####### end of Kneser-Ney ##########
 
 # calculates the perplexity for a sequence of blocks
 def perplexity(blockSequence):
@@ -94,8 +143,8 @@ def perplexity(blockSequence):
     # calculate sequence prob inv
     for idx, val in enumerate(blockSequence):
         if idx < windowSize: continue # skip the first n blocks. change if you added starting padding
-        probs = simpleProbabilities(blockSequence[idx-windowSize:idx])
-        invProb = 1.0/probs[val]
+        prob = KNSmoothingProbabilities(blockSequence[idx-windowSize:idx], val)
+        invProb = 1.0/prob
         sequenceProbabilityInv = sequenceProbabilityInv * invProb
     perplexity = (sequenceProbabilityInv)**(1.0/ numWords)
     return perplexity
@@ -106,7 +155,7 @@ def evaluate(testSet):
         sentenceTokens = Parallel(n_jobs=num_cores)(delayed(nltk.word_tokenize)(line) for line in tqdm(f.readlines()))
     # calculate perplexity for each sent
     print('calculating perplexities')
-    perps = Parallel(n_jobs=num_cores)(delayed(perplexity)(sent) for sent in tqdm(sentenceTokens))
+    perps = Parallel(n_jobs=1)(delayed(perplexity)(sent) for sent in tqdm(sentenceTokens))
     avg = sum(perps) / float(len(perps))
     print(avg)
     return avg
