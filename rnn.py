@@ -16,6 +16,7 @@ import sys
 import heapq
 import seaborn as sns
 from pylab import rcParams
+from functools import wraps
 from joblib import Parallel, delayed
 import multiprocessing
 num_cores = multiprocessing.cpu_count()
@@ -33,6 +34,7 @@ END_SYMBOL = 'END'
 # memoize helper
 def memoize(f):
     cache = {}
+    @wraps(f)
     def decorated(*args):
         key = (f, str(args))
         result = cache.get(key, None)
@@ -69,6 +71,14 @@ def one_hot_encode(number):
     vec = np.zeros(VOCAB_SIZE, dtype=bool)
     np.put(vec, number, True)
     return vec
+
+blocks2Vec = False #holds word2vec embeddings
+@memoize
+def embedding_encode(number):
+    # number to block
+    block = x_word[number]
+    if (not blocks2Vec): blocks2Vec = Word2Vec.load(WORD2VEC_MODEL)
+    return blocks2Vec[block]
 
 def encode_dataset(x, encoder):
     encodedSet = []
