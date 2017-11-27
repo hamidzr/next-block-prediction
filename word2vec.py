@@ -56,13 +56,40 @@ def process_sentences(dataFrame):
     return dataFrame
 
 
+def chart():
+    # defining the chart
+    output_file(args.plot_path)
+    plot_tfidf = bp.figure(plot_width=700, plot_height=600, title="block vectors",
+        tools="pan,wheel_zoom,box_zoom,reset,hover,previewsave",
+        x_axis_type=None, y_axis_type=None, min_border=1)
+
+    print('number of words #', len(blocks2Vec.wv.vocab.keys()))
+    # getting a list of word vectors. limit to 10000. each is of 200 dimensions
+    block_vectors = [blocks2Vec[w] for w in blocks2Vec.wv.vocab.keys()]
+
+    # dimensionality reduction. converting the vectors to 2d vectors
+    tsne_model = TSNE(n_components=2, verbose=1, random_state=0, n_iter=1000)
+    print('finding the best 2d representation..')
+    tsne_w2v = tsne_model.fit_transform(block_vectors)
+    # putting everything in a dataframe
+    tsne_df = pd.DataFrame(tsne_w2v, columns=['x', 'y'])
+
+    tsne_df['blocks'] = blocks2Vec.wv.vocab.keys()
+
+    # plotting. corresponding word appears when you hover on the data point.
+    plot_tfidf.scatter(x='x', y='y', source=tsne_df)
+    hover = plot_tfidf.select(dict(type=HoverTool))
+    hover.tooltips={"block": "@blocks"}
+    show(plot_tfidf)
+
 if (args.mode == 'train' and args.tokenize):
     df = load_data('~/datasets/blocks/project-sentences.txt')
-    print 'tokenizing..'
+    print('tokenizing..')
     df = process_sentences(df)
     df.to_pickle(args.tokens_path)
-    print 'finished tokenizing'
+    print('finished tokenizing')
 else:
+    print('Loading tokens..')
     df = pd.read_pickle(args.tokens_path)
 
 x_train = df['tokens'].tolist()
@@ -74,7 +101,8 @@ x_train = df['tokens'].tolist()
 if (args.mode == 'train'):
     print('training..')
     # set vector size and min block count
-    blocks2Vec = Word2Vec(size=10, min_count=10)
+    # using CBOW sg=0
+    blocks2Vec = Word2Vec(size=10, min_count=10, sg=0, workers=num_cores)
     blocks2Vec.build_vocab([x for x in tqdm(x_train)])
     blocks2Vec.train([x for x in tqdm(x_train)], total_examples=len(x_train), epochs=blocks2Vec.iter)
     blocks2Vec.save(args.model_path)
@@ -87,28 +115,5 @@ if (args.block):
     print blocks2Vec[block]
     print blocks2Vec.most_similar(block)
 
-
-# defining the chart
-output_file(args.plot_path)
-plot_tfidf = bp.figure(plot_width=700, plot_height=600, title="block vectors",
-    tools="pan,wheel_zoom,box_zoom,reset,hover,previewsave",
-    x_axis_type=None, y_axis_type=None, min_border=1)
-
-print('number of words #', len(blocks2Vec.wv.vocab.keys()))
-# getting a list of word vectors. limit to 10000. each is of 200 dimensions
-block_vectors = [blocks2Vec[w] for w in blocks2Vec.wv.vocab.keys()]
-
-# dimensionality reduction. converting the vectors to 2d vectors
-tsne_model = TSNE(n_components=2, verbose=1, random_state=0, n_iter=1000)
-print('finding the best 2d representation..')
-tsne_w2v = tsne_model.fit_transform(block_vectors)
-# putting everything in a dataframe
-tsne_df = pd.DataFrame(tsne_w2v, columns=['x', 'y'])
-
-tsne_df['blocks'] = blocks2Vec.wv.vocab.keys()
-
-# plotting. the corresponding word appears when you hover on the data point.
-plot_tfidf.scatter(x='x', y='y', source=tsne_df)
-hover = plot_tfidf.select(dict(type=HoverTool))
-hover.tooltips={"block": "@blocks"}
-show(plot_tfidf)
+# chart()
+# print(blocks2Vec)
