@@ -16,12 +16,17 @@ import sys
 import heapq
 import seaborn as sns
 from pylab import rcParams
+from joblib import Parallel, delayed
+import multiprocessing
+num_cores = multiprocessing.cpu_count()
 
 sns.set(style='whitegrid', palette='muted', font_scale=1.5)
 
 rcParams['figure.figsize'] = 12, 5
 
 INPUT = './data/cleanSample.txt'
+WORD2VEC_MODEL = './data/block2vec100.model'
+RESULTS_DIR = './results'
 START_SYMBOL = 'START'
 END_SYMBOL = 'END'
 
@@ -45,12 +50,12 @@ def pad_script(script):
         script.insert(0, START_SYMBOL)
     return script
 
-def load_data(num_scripts=100000):
+def load_data(num_scripts=100000, padding=True):
     tokens_list = []
     with open(INPUT, 'r') as f:
         for idx, line in enumerate(f.readlines()):
             line_words = text_to_word_sequence(line)
-            line_words = pad_script(line_words)
+            if (padding): line_words = pad_script(line_words)
             tokens_list.append(line_words)
             if (idx >= num_scripts): break
     all_tokens = itertools.chain.from_iterable(tokens_list)
@@ -90,16 +95,29 @@ def build_xy(scripts_list):
             next_words.append(script[idx+SEQ_SIZE])
     return sequences, next_words
 
-VOCAB_SIZE = 280 #real vocab size + 2 for padding
 SEQ_SIZE = 3
-VALIDATION_SPLIT = 0.05
+PADDING = False
+VOCAB_SIZE = 278 + 2 if (PADDING) else 278 # to account for padding
+# model params
+LSTM_UNITS = 64
+EPOCHS = 4
+BATCH_SIZE = 128
+DATASET_SIZE = 1000 * 1000
+VALIDATION_SPLIT = 0.2
+ENCODER = one_hot_encode
 
+# helper to print config
+def configToString():
+    return f'{ENCODER.__name__}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{EPOCHS}-{PADDING}'
+
+print('Running config:', configToString())
 print('Loading data...')
-x, word_x = load_data(num_scripts=100000)
+x, word_x = load_data(num_scripts=DATASET_SIZE, padding=PADDING)
+x_word = {v: k for k, v in word_x.items()}
 print('Encoding the words..')
 one_hot_x = encode_dataset(x, one_hot_encode)
 print('Building the y labels..')
-xs, ys =build_xy(one_hot_x)
+xs, ys = build_xy(one_hot_x)
 # make it a numpy array
 xs = np.array(xs, dtype=np.bool)
 ys = np.array(ys, dtype=np.bool)
@@ -112,36 +130,37 @@ print('Y shape', np.shape(ys))
 
 print('Building the model')
 model = Sequential()
-model.add(LSTM(64, input_shape=(SEQ_SIZE, VOCAB_SIZE)))
+model.add(LSTM(LSTM_UNITS, input_shape=(SEQ_SIZE, VOCAB_SIZE)))
 model.add(Dense(VOCAB_SIZE))
 model.add(Activation('softmax'))
 
-print('Training')
+print('Training..')
 optimizer = RMSprop(lr=0.01)
 model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-history = model.fit(xs, ys, validation_split=VALIDATION_SPLIT, batch_size=128, epochs=20, shuffle=True).history
+history = model.fit(xs, ys, validation_split=VALIDATION_SPLIT, batch_size=BATCH_SIZE, epochs=EPOCHS, shuffle=True).history
 
-print('Saving the model and history')
-model.save('keras_model.h5')
-pickle.dump(history, open("history.p", "wb"))
+print('saving the model and history..')
+model.save( RESULTS_DIR + f'/rnn-{configToString()}.h5')
+pickle.dump(history, open( RESULTS_DIR + f"/history-{configToString()}.p", "wb"))
 
-print('Load em back')
-model = load_model('keras_model.h5')
-history = pickle.load(open("history.p", "rb"))
+# load em back
+model = load_model( RESULTS_DIR + f'/rnn-{configToString()}.h5')
+history = pickle.load(open( RESULTS_DIR + f"/history-{configToString()}.p", "rb"))
 
 #plot 
+print('plotting..')
 plt.plot(history['acc'])
 plt.plot(history['val_acc'])
-plt.title('model accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left');
-plt.show()
+plt.title(f'Model Accuracy. {configToString()}')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Test'], loc='upper left');
+plt.savefig(RESULTS_DIR + f'/acc-{configToString()}.png', bbox_inches='tight')
 
 plt.plot(history['loss'])
 plt.plot(history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left');
-plt.show()
+plt.title(f'Model Loss. {configToString()}')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Test'], loc='upper left');
+plt.savefig(RESULTS_DIR + f'/loss-{configToString()}.png', bbox_inches='tight')
