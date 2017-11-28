@@ -1,4 +1,5 @@
 import numpy as np
+import math
 np.random.seed(42)
 import itertools
 import tensorflow as tf
@@ -116,35 +117,44 @@ def plot():
 
 SEQ_SIZE = 3
 PADDING = False
-VOCAB_SIZE = 278 + 2 if (PADDING) else 278 # to account for padding
+VOCAB_SIZE = 144 + 2 if (PADDING) else 144 # to account for padding
 # model params
-LSTM_UNITS = 64
+LSTM_UNITS = 128
 EPOCHS = 4
 BATCH_SIZE = 128
 DATASET_SIZE = 250 * 1000
 VALIDATION_SPLIT = 0.1
 ENCODER = embedding_encode
-BLOCK_VEC_SIZE = VOCAB_SIZE if (ENCODER == one_hot_encode) else constants.WORD2VEC_SIZE # if word2vec == vec size
+OPTIMIZER = RMSprop(lr=0.01)
+
+## auto set
+if (ENCODER == embedding_encode):
+    BLOCK_VEC_SIZE = constants.WORD2VEC_SIZE # if word2vec == vec size
+    LOSS = 'mean_squared_error'
+else:
+    BLOCK_VEC_SIZE = VOCAB_SIZE
+    LOSS = 'categorical_crossentropy'
 
 # helper to print config
 def configToString():
-    return f'{ENCODER.__name__}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{BLOCK_VEC_SIZE}-{EPOCHS}-{PADDING}'
+    return f'{ENCODER.__name__}-{LOSS}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{BLOCK_VEC_SIZE}-{EPOCHS}-{PADDING}'
 
 print('Running config:', configToString())
 print('Loading data...')
 x, word_x = load_data(num_scripts=DATASET_SIZE, padding=PADDING)
+VOCAB_SIZE = len(word_x) # update vocab size
 x_word = {v: k for k, v in word_x.items()}
 print('Encoding the words..')
-one_hot_x = encode_dataset(x, ENCODER)
+encoded_x = encode_dataset(x, ENCODER)
 print('Building the y labels..')
-xs, ys = build_xy(one_hot_x)
+xs, ys = build_xy(encoded_x)
 # make it a numpy array
 xs = np.array(xs)
 ys = np.array(ys)
 
-print('Sample training sequence', ys[0])
-print(len(xs)*(1-VALIDATION_SPLIT), 'train sequences')
-print(len(xs)*VALIDATION_SPLIT, 'test sequences')
+print('Sample training sequence', xs[0])
+print(math.floor(len(xs)*(1-VALIDATION_SPLIT)), 'train sequences')
+print(math.floor(len(xs)*VALIDATION_SPLIT), 'test sequences')
 print('X shape', np.shape(xs))
 print('Y shape', np.shape(ys))
 
@@ -155,8 +165,7 @@ model.add(Dense(BLOCK_VEC_SIZE))
 model.add(Activation('softmax'))
 
 print('Training..')
-optimizer = RMSprop(lr=0.01)
-model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+model.compile(loss=LOSS, optimizer=OPTIMIZER, metrics=['accuracy'])
 history = model.fit(xs, ys, validation_split=VALIDATION_SPLIT, batch_size=BATCH_SIZE, epochs=EPOCHS, shuffle=True).history
 
 print('saving the model and history..')
