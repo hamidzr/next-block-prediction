@@ -37,7 +37,7 @@ def load_data(num_scripts=100000, padding=True):
     tokens_list = []
     with open(constants.INPUT, 'r') as f:
         for idx, line in enumerate(f.readlines()):
-            line_words = text_to_word_sequence(line)
+            line_words = text_to_word_sequence(line, lower=False)
             if (padding): line_words = pad_script(line_words)
             tokens_list.append(line_words)
             if (idx >= num_scripts): break
@@ -65,7 +65,13 @@ def embedding_encode(number):
 def encode_dataset(x, encoder):
     encodedSet = []
     for seq in x:
-        encoded = list(map(encoder, seq))
+        encoded = []
+        for blockNumber in seq:
+            try:
+                encBlock = encoder(blockNumber)
+                encoded.append(encBlock)
+            except Exception as e:
+                print(e)
         encodedSet.append(encoded)
     return encodedSet
 
@@ -115,27 +121,28 @@ VOCAB_SIZE = 278 + 2 if (PADDING) else 278 # to account for padding
 LSTM_UNITS = 64
 EPOCHS = 4
 BATCH_SIZE = 128
-DATASET_SIZE = 1000 * 1000
-VALIDATION_SPLIT = 0.2
-ENCODER = one_hot_encode
+DATASET_SIZE = 250 * 1000
+VALIDATION_SPLIT = 0.1
+ENCODER = embedding_encode
+BLOCK_VEC_SIZE = VOCAB_SIZE if (ENCODER == one_hot_encode) else constants.WORD2VEC_SIZE # if word2vec == vec size
 
 # helper to print config
 def configToString():
-    return f'{ENCODER.__name__}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{EPOCHS}-{PADDING}'
+    return f'{ENCODER.__name__}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{BLOCK_VEC_SIZE}-{EPOCHS}-{PADDING}'
 
 print('Running config:', configToString())
 print('Loading data...')
 x, word_x = load_data(num_scripts=DATASET_SIZE, padding=PADDING)
 x_word = {v: k for k, v in word_x.items()}
 print('Encoding the words..')
-one_hot_x = encode_dataset(x, one_hot_encode)
+one_hot_x = encode_dataset(x, ENCODER)
 print('Building the y labels..')
 xs, ys = build_xy(one_hot_x)
 # make it a numpy array
-xs = np.array(xs, dtype=np.bool)
-ys = np.array(ys, dtype=np.bool)
+xs = np.array(xs)
+ys = np.array(ys)
 
-# print('Sample training sequence', x_train[0])
+print('Sample training sequence', ys[0])
 print(len(xs)*(1-VALIDATION_SPLIT), 'train sequences')
 print(len(xs)*VALIDATION_SPLIT, 'test sequences')
 print('X shape', np.shape(xs))
@@ -143,8 +150,8 @@ print('Y shape', np.shape(ys))
 
 print('Building the model')
 model = Sequential()
-model.add(LSTM(LSTM_UNITS, input_shape=(SEQ_SIZE, VOCAB_SIZE)))
-model.add(Dense(VOCAB_SIZE))
+model.add(LSTM(LSTM_UNITS, input_shape=(SEQ_SIZE, BLOCK_VEC_SIZE)))
+model.add(Dense(BLOCK_VEC_SIZE))
 model.add(Activation('softmax'))
 
 print('Training..')
