@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.6
 from tqdm import tqdm #progress bar
+from utils import constants
 import pandas as pd
 import numpy as np
 import gensim
@@ -83,7 +84,7 @@ def chart():
     show(plot_tfidf)
 
 if (args.mode == 'train' and args.tokenize):
-    df = load_data('~/datasets/blocks/project-sentences.txt')
+    df = load_data(constants.INPUT)
     print('tokenizing..')
     df = process_sentences(df)
     df.to_pickle(args.tokens_path)
@@ -102,7 +103,7 @@ if (args.mode == 'train'):
     print('training..')
     # set vector size and min block count
     # using CBOW sg=0
-    blocks2Vec = Word2Vec(size=10, min_count=10, sg=0, workers=num_cores)
+    blocks2Vec = Word2Vec(size=constants.WORD2VEC_SIZE, min_count=10, sg=0, workers=constants.num_cores)
     blocks2Vec.build_vocab([x for x in tqdm(x_train)])
     blocks2Vec.train([x for x in tqdm(x_train)], total_examples=len(x_train), epochs=blocks2Vec.iter)
     blocks2Vec.save(args.model_path)
@@ -115,5 +116,4 @@ if (args.block):
     print blocks2Vec[block]
     print blocks2Vec.most_similar(block)
 
-# chart()
-# print(blocks2Vec)
+chart()
