@@ -39,7 +39,8 @@ def load_data(num_scripts=100000, padding=True):
     tokens_list = []
     with open(constants.INPUT, 'r') as f:
         for idx, line in enumerate(f.readlines()):
-            line_words = text_to_word_sequence(line, lower=False)
+            line_words = text_to_word_sequence(line, filters='\n', lower=False)
+            # line_words = helpers.script_tokenizer(line)
             if (padding): line_words = pad_script(line_words)
             tokens_list.append(line_words)
             if (idx >= num_scripts): break
@@ -73,8 +74,6 @@ def load_wv():
     vectors = scale(vectors)
     for idx, block in enumerate(blocks):
         dic[block] = vectors[idx]
-    print(blocks)
-
     return dic
 
 blockVectors = load_wv()
@@ -94,7 +93,7 @@ def encode_dataset(x, encoder):
                 encBlock = encoder(blockNumber)
                 encoded.append(encBlock)
             except Exception as e:
-                # print(e)
+                print(e)
                 failedCounter += 1
         encodedSet.append(encoded)
     print(f'failed to encode {failedCounter} block instances')
@@ -138,18 +137,27 @@ def plot():
     plt.legend(['Train', 'Test'], loc='upper left');
     plt.savefig(constants.RESULTS_DIR + f'/loss-{configToString()}.png', bbox_inches='tight')
 
+# helper to print config
+def configToString():
+    return f'{ENCODER.__name__}-{LOSS}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{BLOCK_VEC_SIZE}-{EPOCHS}-{PADDING}'
+
+#### parameters
 
 SEQ_SIZE = 3
 PADDING = False
-VOCAB_SIZE = 144 + 2 if (PADDING) else 144 # to account for padding
+VOCAB_SIZE = 'unknown' # will be set after loading the dataset
 # model params
 LSTM_UNITS = 128
-EPOCHS = 3
+EPOCHS = 5
 BATCH_SIZE = 128
-DATASET_SIZE = 500 * 1000
+DATASET_SIZE = 9999 * 1000
 VALIDATION_SPLIT = 0.1
 ENCODER = embedding_encode
 OPTIMIZER = RMSprop(lr=0.01) # 'adam'
+
+print('Loading data...')
+x, word_x = load_data(num_scripts=DATASET_SIZE, padding=PADDING)
+VOCAB_SIZE = len(word_x) + 2 if (PADDING) else len(word_x) # calc vocab size
 
 ## auto set
 if (ENCODER == embedding_encode):
@@ -159,14 +167,7 @@ else:
     BLOCK_VEC_SIZE = VOCAB_SIZE
     LOSS = 'categorical_crossentropy'
 
-# helper to print config
-def configToString():
-    return f'{ENCODER.__name__}-{LOSS}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{BLOCK_VEC_SIZE}-{EPOCHS}-{PADDING}'
-
 print('Running config:', configToString())
-print('Loading data...')
-x, word_x = load_data(num_scripts=DATASET_SIZE, padding=PADDING)
-VOCAB_SIZE = len(word_x) # update vocab size
 x_word = {v: k for k, v in word_x.items()}
 print('Encoding the words..')
 encoded_x = encode_dataset(x, ENCODER)

@@ -12,3 +12,10 @@ def memoize(f):
             cache[key] = result
         return result
     return decorated
+
+# takes in the script as a one liner string
+def script_tokenizer(script):
+    # keep all the punctuation
+    tokens = script.split(' ')
+    tokens[-1] = tokens[-1].replace('\n', '')
+    return tokens

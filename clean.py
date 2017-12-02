@@ -15,7 +15,8 @@ sentenceSizes = []
 
 def removeSpecialChars(line):
     # line.replace(':','')
-    # line.replace('. .','')
+    line.replace('\n','')
+    line.replace('. .','')
     return line
 
 # true if it has a reasonable size

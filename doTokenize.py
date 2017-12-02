@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 import multiprocessing
+from utils.helpers import script_tokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--textFile", help="text document")

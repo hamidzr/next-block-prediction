@@ -38,17 +38,16 @@ def load_data(path):
     return df
 
 # cleansout and tokenizes one sentence or project 
-def tokenize(comment):
+def tokenize(script):
     try:
-        # comment = unicode(comment.decode('utf-8').lower())
-        comment = unicode(comment.decode('utf-8'))
-        tokens = word_tokenize(comment)
+        # script = unicode(script.decode('utf-8'))
+        tokens = script_tokenizer(script)
     except Exception as e:
         print(e)
         tokens = 'BADPROJECT'
     return tokens
 
-# processes all the sentences and removed invalid ones
+# processes all the scripts and removes invalid ones
 def process_sentences(dataFrame):
     dataFrame['tokens'] = dataFrame.text.progress_map(tokenize)
     dataFrame['token-count'] = dataFrame.tokens.progress_map(lambda tokens: len(tokens))
