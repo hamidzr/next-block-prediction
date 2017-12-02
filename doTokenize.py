@@ -15,6 +15,7 @@ import multiprocessing
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--textFile", help="text document")
+parser.add_argument("--blocksPickleFile", help="1gram counts tuples output path")
 parser.add_argument("pickleFile", help="tokens file location")
 args = parser.parse_args()
 num_cores = multiprocessing.cpu_count()
@@ -64,5 +65,11 @@ LOW_THRESHOLD = 1 # blocks with lesser counts will be considered low freq
 # TODO fix lowFreq filter
 lowFreqs = list(filter(lambda pair: pair[1] >= LOW_THRESHOLD, tokenStats.items()))
 print('# Unique blocks', len(tokenStats.items()))
+with open(args.blocksPickleFile, 'wb') as f:
+    pickle.dump(list(tokenStats.items()), f)
 print('# Low freq blocks', len(lowFreqs))
 plotFrequencyDist(tokenStats)
+
+# TODO same for bigrams and trigrams
+# bigramStats = Counter(tokens)
+# trigramStats = Counter(tokens)

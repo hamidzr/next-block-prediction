@@ -4,6 +4,7 @@ np.random.seed(42)
 import itertools
 import tensorflow as tf
 tf.set_random_seed(42)
+from sklearn.preprocessing import scale
 from keras.models import Sequential, load_model
 from keras.preprocessing.text import one_hot, text_to_word_sequence
 from keras.layers import Dense, Activation
@@ -54,17 +55,38 @@ def one_hot_encode(number):
     np.put(vec, number, True)
     return vec
 
-blocks2Vec = False #holds word2vec embeddings
+@memoize
+def load_wv():
+    blocks = []
+    vectors = []
+    dic = {}
+    blocks2Vec = Word2Vec.load(constants.WORD2VEC_MODEL)
+    with open('./data/uniqueBlocks.pickle', 'rb') as f:
+        lang = pickle.load(f)
+    for block, count in lang:
+        try: # try if vector is available
+            vectors.append(blocks2Vec[block])
+            blocks.append(block)
+        except Exception as e:
+            continue
+    # scale to have zero mean and unit standard deviation
+    vectors = scale(vectors)
+    for idx, block in enumerate(blocks):
+        dic[block] = vectors[idx]
+    print(blocks)
+
+    return dic
+
+blockVectors = load_wv()
 @memoize
 def embedding_encode(number):
-    global blocks2Vec
     # number to block
     block = x_word[number]
-    if (not blocks2Vec): blocks2Vec = Word2Vec.load(constants.WORD2VEC_MODEL)
-    return blocks2Vec[block]
+    return blockVectors[block]
 
 def encode_dataset(x, encoder):
     encodedSet = []
+    failedCounter = 0
     for seq in x:
         encoded = []
         for blockNumber in seq:
@@ -72,8 +94,10 @@ def encode_dataset(x, encoder):
                 encBlock = encoder(blockNumber)
                 encoded.append(encBlock)
             except Exception as e:
-                print(e)
+                # print(e)
+                failedCounter += 1
         encodedSet.append(encoded)
+    print(f'failed to encode {failedCounter} block instances')
     return encodedSet
 
 
@@ -120,17 +144,17 @@ PADDING = False
 VOCAB_SIZE = 144 + 2 if (PADDING) else 144 # to account for padding
 # model params
 LSTM_UNITS = 128
-EPOCHS = 4
+EPOCHS = 3
 BATCH_SIZE = 128
-DATASET_SIZE = 250 * 1000
+DATASET_SIZE = 500 * 1000
 VALIDATION_SPLIT = 0.1
 ENCODER = embedding_encode
-OPTIMIZER = RMSprop(lr=0.01)
+OPTIMIZER = RMSprop(lr=0.01) # 'adam'
 
 ## auto set
 if (ENCODER == embedding_encode):
     BLOCK_VEC_SIZE = constants.WORD2VEC_SIZE # if word2vec == vec size
-    LOSS = 'mean_squared_error'
+    LOSS = 'mse'
 else:
     BLOCK_VEC_SIZE = VOCAB_SIZE
     LOSS = 'categorical_crossentropy'
@@ -160,6 +184,7 @@ print('Y shape', np.shape(ys))
 
 print('Building the model')
 model = Sequential()
+# model.add(Embedding(VOCAB_SIZE, 100, input_length=10))
 model.add(LSTM(LSTM_UNITS, input_shape=(SEQ_SIZE, BLOCK_VEC_SIZE)))
 model.add(Dense(BLOCK_VEC_SIZE))
 model.add(Activation('softmax'))
@@ -167,6 +192,7 @@ model.add(Activation('softmax'))
 print('Training..')
 model.compile(loss=LOSS, optimizer=OPTIMIZER, metrics=['accuracy'])
 history = model.fit(xs, ys, validation_split=VALIDATION_SPLIT, batch_size=BATCH_SIZE, epochs=EPOCHS, shuffle=True).history
+print(model.summary())
 
 print('saving the model and history..')
 model.save( constants.RESULTS_DIR + f'/rnn-{configToString()}.h5')

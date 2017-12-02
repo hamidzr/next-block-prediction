@@ -14,8 +14,8 @@ MAX_SCRIPT_SIZE = os.getenv(MAX_SCRIPT_SIZE, 40)
 sentenceSizes = []
 
 def removeSpecialChars(line):
-    line.replace(':','')
-    line.replace('. .','')
+    # line.replace(':','')
+    # line.replace('. .','')
     return line
 
 # true if it has a reasonable size
