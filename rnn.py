@@ -20,12 +20,11 @@ import seaborn as sns
 from gensim.models.word2vec import Word2Vec
 from pylab import rcParams
 from joblib import Parallel, delayed
-from utils import helpers, constants
+from utils import constants
+from utils.helpers import load_wv, memoize
 
 sns.set(style='whitegrid', palette='muted', font_scale=1.5)
 rcParams['figure.figsize'] = 12, 5
-
-memoize = helpers.memoize
 
 # pad the scripts with begining and ending
 def pad_script(script):
@@ -56,27 +55,7 @@ def one_hot_encode(number):
     np.put(vec, number, True)
     return vec
 
-@memoize
-def load_wv():
-    blocks = []
-    vectors = []
-    dic = {}
-    blocks2Vec = Word2Vec.load(constants.WORD2VEC_MODEL)
-    with open('./data/uniqueBlocks.pickle', 'rb') as f:
-        lang = pickle.load(f)
-    for block, count in lang:
-        try: # try if vector is available
-            vectors.append(blocks2Vec[block])
-            blocks.append(block)
-        except Exception as e:
-            continue
-    # scale to have zero mean and unit standard deviation
-    vectors = scale(vectors)
-    for idx, block in enumerate(blocks):
-        dic[block] = vectors[idx]
-    return dic
-
-blockVectors = load_wv()
+blockVectors = load_wv(False)
 @memoize
 def embedding_encode(number):
     # number to block
@@ -139,18 +118,18 @@ def plot():
 
 # helper to print config
 def configToString():
-    return f'{ENCODER.__name__}-{LOSS}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{BLOCK_VEC_SIZE}-{EPOCHS}-{PADDING}'
+    return f'{ENCODER.__name__}-{LOSS}-{DATASET_SIZE}-{BATCH_SIZE}-{LSTM_UNITS}-{BLOCK_VEC_SIZE}-{SEQ_SIZE}-{EPOCHS}-{PADDING}'
 
 #### parameters
 
-SEQ_SIZE = 3
+SEQ_SIZE = 4
 PADDING = False
 VOCAB_SIZE = 'unknown' # will be set after loading the dataset
 # model params
 LSTM_UNITS = 128
-EPOCHS = 5
+EPOCHS = 3
 BATCH_SIZE = 128
-DATASET_SIZE = 9999 * 1000
+DATASET_SIZE = 500 * 1000
 VALIDATION_SPLIT = 0.1
 ENCODER = embedding_encode
 OPTIMIZER = RMSprop(lr=0.01) # 'adam'
