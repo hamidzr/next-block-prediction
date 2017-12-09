@@ -3,6 +3,15 @@ from gensim.models.word2vec import Word2Vec
 import pickle
 from .constants import *
 from sklearn.preprocessing import scale
+import mmap
+
+BLOCK_LANG = 'data/scratch/tokens.pickle.lang'
+lang = []
+try:
+    with open(BLOCK_LANG, 'rb') as f:
+        lang = pickle.load(f)
+except Exception as e:
+    print(f'language file unavailable', BLOCK_LANG)
 
 # memoize helper
 def memoize(f):
@@ -22,6 +31,8 @@ def script_tokenizer(script):
     # keep all the punctuation
     tokens = script.split(' ')
     tokens[-1] = tokens[-1].replace('\n', '')
+    # get rid of unknown tokens
+    if (len(lang) > 10): tokens = list(filter(lambda t: t in lang, tokens ))
     return tokens
 
 # loads word2vec model scales the vectors and returns a dic
@@ -33,9 +44,7 @@ def load_wv(scale=True):
     blocks = []
     vectors = []
     dic = {}
-    with open('./data/uniqueBlocks.pickle', 'rb') as f:
-        lang = pickle.load(f)
-    for block, count in lang:
+    for block in lang:
         try: # try if vector is available
             vectors.append(blocks2Vec[block])
             blocks.append(block)
@@ -46,3 +55,11 @@ def load_wv(scale=True):
     for idx, block in enumerate(blocks):
         dic[block] = vectors[idx]
     return dic
+
+def get_num_lines(file_path):
+    fp = open(file_path, "r+")
+    buf = mmap.mmap(fp.fileno(), 0)
+    lines = 0
+    while buf.readline():
+        lines += 1
+    return lines
