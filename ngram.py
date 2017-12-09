@@ -6,12 +6,12 @@ import sys
 from tqdm import tqdm
 import pickle
 import time
-from nltk import word_tokenize
 from nltk.util import ngrams
 from collections import Counter
 import argparse
 from joblib import Parallel, delayed
 import multiprocessing
+from utils.helpers import script_tokenizer, memoize
 num_cores = multiprocessing.cpu_count()
 
 parser = argparse.ArgumentParser()
@@ -20,6 +20,8 @@ parser.add_argument("-v", "--verbose", help="increase output verbosity",
 parser.add_argument("-n", "--ngrams", help="ngram parameter", type=int)
 parser.add_argument("--tokens", help="tokens pickle file address")
 args = parser.parse_args()
+
+TEST_SET = './data/scratch/scripts_sample.txt'
 
 if args.verbose:
     print("verbosity turned on")
@@ -35,18 +37,6 @@ def loadTokens():
     print('loaded', len(tokens), 'tokens')
     return tokens
 
-
-# memoize helper
-def memoize(f):
-    cache = {}
-    def decorated(*args):
-        key = (f, str(args))
-        result = cache.get(key, None)
-        if result is None:
-            result = f(*args)
-            cache[key] = result
-        return result
-    return decorated
 
 # helper count grams
 @memoize
@@ -69,11 +59,11 @@ def ngramsCount(seq, block):
     return 0
 
 
-# idea sequence is ngramSize-1
+# ideal sequence is ngramSize-1
 # compute for a single word
 def noSmoothing(sequence, block):
     windowSize = args.ngrams-1
-    if len(sequence) !=  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
+    if len(sequence) !=  windowSize: raise Exception(f'mismatching sequence. {len(sequence)}')
     totalCount = countGramsStartingWith(sequence)
     blockCount = ngramsCount(sequence, block)
     p = blockCount/float(totalCount)
@@ -82,7 +72,7 @@ def noSmoothing(sequence, block):
 # TODO normalize the counts
 def addOneSmoothing(sequence, block):
     windowSize = args.ngrams-1
-    if len(sequence) !=  windowSize: raise Exception('short sequence') #TODO backoff to lower grams? 
+    if len(sequence) !=  windowSize: raise Exception(f'mismatching sequence. {len(sequence)}')
     totalCount = countGramsStartingWith(sequence)
     blockCount = ngramsCount(sequence, block)
     if (blockCount == 0): blockCount += 1
@@ -104,14 +94,15 @@ def continuationProbability(block):
 
 # number of single block types that can follow a sequence
 @memoize
-def lambdaWeight(sequence):
+def lambdaWeight(sequence, block):
+    # H mashkook makhrajo motmaen nisti
     windowSize = args.ngrams-1
     if len(sequence) !=  windowSize: raise Exception('bad sequence length')
     uniqueCount = 0
     for gram, count in gramStats.items():
         if (list(gram)[0:windowSize] == sequence):
             uniqueCount += 1
-    return uniqueCount
+    return uniqueCount/blockStats[block]
 
 
 # sequence is one smaller in length from ngram
@@ -126,7 +117,7 @@ def KNSmoothing(sequence, block):
     d = 0.75
     if (blockCount < 2): d = 0.4
     discountedGram = (blockCount - d)/float(totalCount)
-    prob = discountedGram + lambdaWeight(sequence)*continuationProbability(block)
+    prob = discountedGram + lambdaWeight(sequence, block)*continuationProbability(block)
     return prob
 
 ####### end of Kneser-Ney ##########
@@ -135,11 +126,16 @@ def KNSmoothing(sequence, block):
 def perplexity(blockSequence):
     windowSize = args.ngrams -1
     numWords = len(blockSequence)
+    if (numWords < windowSize ):
+        print('invalid short input sequence')
+        return -1
     sequenceProbabilityInv = 1;
     # calculate sequence prob inv
     for idx, val in enumerate(blockSequence):
         if idx < windowSize: continue # skip the first n blocks. change if you added starting padding
         prob = probabilityFn(blockSequence[idx-windowSize:idx], val)
+        # print(prob)
+        if (prob > 1): raise Exception('calculated a probability more than 1!')
         invProb = 1.0/prob
         sequenceProbabilityInv = sequenceProbabilityInv * invProb
     perplexity = (sequenceProbabilityInv)**(1.0/ numWords)
@@ -148,10 +144,11 @@ def perplexity(blockSequence):
 def evaluate(testSet):
     # tokenize each sentence of test set
     with open(testSet, 'r') as f:
-        sentenceTokens = Parallel(n_jobs=num_cores)(delayed(nltk.word_tokenize)(line) for line in tqdm(f.readlines()))
+        sentenceTokens = Parallel(n_jobs=num_cores)(delayed(script_tokenizer)(line) for line in tqdm(f.readlines()))
     # calculate perplexity for each sent
     print('calculating perplexities')
-    perps = Parallel(n_jobs=1)(delayed(perplexity)(sent) for sent in tqdm(sentenceTokens))
+    perps = Parallel(n_jobs=num_cores)(delayed(perplexity)(sent) for sent in tqdm(sentenceTokens))
+    perps = list(filter(lambda p: p > 0, perps))
     avg = sum(perps) / float(len(perps))
     print(avg)
     return avg
@@ -161,8 +158,13 @@ def interactiveInspection():
         # calculate probabilities given a sequence of words
         seq = input('pass a sequence: ')
         seq = seq.split(' ')
-        # probabilityFn(seq, gramStats)
-        perplexity(seq)
+        preds = []
+        for block in blockStats:
+            prob = probabilityFn(seq[-args.ngrams+1:], block)
+            preds.append((block, prob))
+        preds.sort(key=lambda tup: tup[1], reverse=True)
+        print('predictions:', preds[:3])
+        print('perplexity:', perplexity(seq))
 
 
 
@@ -177,10 +179,12 @@ gramed = ngrams(tokens,args.ngrams)
 # TODO IMP add starting and ending WORDs ?
 # NOTE alan intori tahe jomle ghabli chasbide be badi
 gramStats = Counter(gramed)
+print('# unique tokens', len(gramStats.items()))
 blockStats = Counter(tokens)
-print(gramStats.most_common(10))
+print(gramStats.most_common(100))
 
 # set the desired probabilityFn
-probabilityFn = noSmoothing
+probabilityFn = addOneSmoothing
 
-evaluate('data/sample.txt')
+interactiveInspection()
+#evaluate(TEST_SET)
