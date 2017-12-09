@@ -58,6 +58,10 @@ else:
     tokenStats = Counter(tokens)
     calcStats(tokenStats)
     lowF, highF, lang = clusterTokens(tokenStats)
+    # save the language blocks
+    with open(args.pickleFile + '.lang', 'wb') as f:
+        pickle.dump(lang, f)
+
     with open(args.pickleFile, 'wb') as f:
         tokens = list(filter(lambda t: t in lang, tokens))
         print(f'writing {len(tokens)} to file')
