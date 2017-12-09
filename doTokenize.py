@@ -4,7 +4,6 @@ import math
 import sys
 from tqdm import tqdm
 import pickle
-from nltk import word_tokenize
 from nltk.util import ngrams
 from collections import Counter
 import argparse
@@ -22,6 +21,24 @@ args = parser.parse_args()
 num_cores = multiprocessing.cpu_count()
 
 
+# calcuate frequency stats
+def calcStats(tokenStats):
+    lowFreqs, highFreqs, unused = clusterTokens(tokenStats)
+    print('# Unique blocks', len(tokenStats.items()))
+    print('# Low freq blocks', len(lowFreqs))
+    print('# sensible blocks', len(highFreqs))
+
+
+def clusterTokens(tokenStats):
+    LOW_THRESHOLD = 10 # blocks with lesser counts will be considered low freq
+    lowFreqs = list(filter(lambda pair: pair[1] < LOW_THRESHOLD, tokenStats.items()))
+    highFreqs = list(filter(lambda pair: pair[1] >= LOW_THRESHOLD, tokenStats.items()))
+    langBlocks = []
+    for p in highFreqs:
+        if p[0] not in langBlocks:
+            langBlocks.append(p[0])
+    return lowFreqs, highFreqs, langBlocks
+
 sentenceTokens = []
 # load or calculate the tokens
 if (args.textFile == None):
@@ -31,14 +48,19 @@ if (args.textFile == None):
         tokens = pickle.load(f)
 else:
     with open(args.textFile, 'r') as myfile:
-        sentenceTokens = Parallel(n_jobs=num_cores)(delayed(nltk.word_tokenize)(line) for line in tqdm(myfile.readlines()))
+        sentenceTokens = Parallel(n_jobs=num_cores)(delayed(script_tokenizer)(line) for line in tqdm(myfile.readlines()))
 
     # concat sentenceTokens into one list
     tokens = []
     for sentence in sentenceTokens:
         tokens += sentence;
     print('finished tokenizing', len(tokens), 'tokens')
+    tokenStats = Counter(tokens)
+    calcStats(tokenStats)
+    lowF, highF, lang = clusterTokens(tokenStats)
     with open(args.pickleFile, 'wb') as f:
+        tokens = list(filter(lambda t: t in lang, tokens))
+        print(f'writing {len(tokens)} to file')
         pickle.dump(tokens, f)
 
 def plotFrequencyDist(tokenCounter, num_blocks=50, scaled=False):
@@ -60,17 +82,17 @@ def plotFrequencyDist(tokenCounter, num_blocks=50, scaled=False):
     plt.bar(x_pos, counts, color='green')
     plt.show()
 
-# calcuate some stats
 tokenStats = Counter(tokens)
-LOW_THRESHOLD = 1 # blocks with lesser counts will be considered low freq
-# TODO fix lowFreq filter
-lowFreqs = list(filter(lambda pair: pair[1] >= LOW_THRESHOLD, tokenStats.items()))
-print('# Unique blocks', len(tokenStats.items()))
 with open(args.blocksPickleFile, 'wb') as f:
     pickle.dump(list(tokenStats.items()), f)
-print('# Low freq blocks', len(lowFreqs))
 plotFrequencyDist(tokenStats)
 
-# TODO same for bigrams and trigrams
-# bigramStats = Counter(tokens)
-# trigramStats = Counter(tokens)
+bigrams = ngrams(tokens, 2)
+bigramStats = Counter(bigrams)
+print('# bigram unique blocks', len(bigramStats.items()))
+plotFrequencyDist(bigramStats)
+
+trigrams = ngrams(tokens, 3)
+trigramStats = Counter(trigrams)
+print('# trigram unique blocks', len(trigramStats.items()))
+plotFrequencyDist(trigramStats)
