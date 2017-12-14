@@ -5,13 +5,13 @@ from .constants import *
 from sklearn.preprocessing import scale
 import mmap
 
-BLOCK_LANG = 'data/scratch/tokens.pickle.lang'
 lang = []
 try:
     with open(BLOCK_LANG, 'rb') as f:
         lang = pickle.load(f)
 except Exception as e:
-    print(f'language file unavailable', BLOCK_LANG)
+    print(e)
+    print('language file unavailable', BLOCK_LANG)
 
 # memoize helper
 def memoize(f):
@@ -63,3 +63,7 @@ def get_num_lines(file_path):
     while buf.readline():
         lines += 1
     return lines
+
+def load_tokens(path):
+    with open(path, 'rb') as f:
+        return pickle.load(f)

@@ -8,7 +8,7 @@ from sklearn.preprocessing import scale
 from keras.models import Sequential, load_model
 from keras.preprocessing.text import one_hot, text_to_word_sequence
 from keras.layers import Dense, Activation
-from keras.layers import LSTM, Dropout
+from keras.layers import LSTM, Dropout, GRU
 from keras.layers import TimeDistributed
 from keras.layers.core import Dense, Activation, Dropout, RepeatVector
 from keras.optimizers import RMSprop
@@ -107,6 +107,7 @@ def plot():
     plt.xlabel('Epoch')
     plt.legend(['Train', 'Test'], loc='upper left');
     plt.savefig(constants.RESULTS_DIR + f'/acc-{configToString()}.png', bbox_inches='tight')
+    plt.close() # clear fig
 
     plt.plot(history['loss'])
     plt.plot(history['val_loss'])

@@ -49,6 +49,7 @@ def next_block(blockSeq):
     next_block = wv.similar_by_vector(next_vec, topn=1, restrict_vocab=None)
     return next_block, next_vec
 
+# TODO autogenerate scripts
 
 # def predict_completion(text):
 #     original_text = text
