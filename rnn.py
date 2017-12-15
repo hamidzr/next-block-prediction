@@ -21,7 +21,7 @@ from gensim.models.word2vec import Word2Vec
 from pylab import rcParams
 from joblib import Parallel, delayed
 from utils import constants
-from utils.helpers import load_wv, memoize
+from utils.helpers import load_wv, memoize, script_tokenizer
 
 sns.set(style='whitegrid', palette='muted', font_scale=1.5)
 rcParams['figure.figsize'] = 12, 5
@@ -39,8 +39,8 @@ def load_data(file_path, num_scripts=100000, padding=False):
     tokens_list = []
     with open(file_path, 'r') as f:
         for idx, line in enumerate(f.readlines()):
-            line_words = text_to_word_sequence(line, filters='\n', lower=False)
-            # line_words = helpers.script_tokenizer(line)
+            # line_words = text_to_word_sequence(line, filters='\n', lower=False)
+            line_words = script_tokenizer(line)
             if (padding): line_words = pad_script(line_words)
             tokens_list.append(line_words)
             if (idx >= num_scripts): break
