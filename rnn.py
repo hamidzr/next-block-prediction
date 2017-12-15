@@ -56,7 +56,7 @@ def one_hot_encode(number):
     np.put(vec, number, True)
     return vec
 
-blockVectors = load_wv(False)
+blockVectors = False
 @memoize
 def embedding_encode(number):
     # number to block
@@ -143,6 +143,7 @@ VOCAB_SIZE = len(word_x) + 2 if (PADDING) else len(word_x) # calc vocab size
 
 ## auto set
 if (ENCODER == embedding_encode):
+    blockVectors = load_wv(False)
     BLOCK_VEC_SIZE = constants.WORD2VEC_SIZE # if word2vec == vec size
     LOSS = 'mse'
 else:
