@@ -1,7 +1,7 @@
 # NextBlock prediction in NetsBlox
 
 ## Data
-snapAnalyzer [Github Repo](https://github.com/hamidzr)
+snapAnalyzer [Github Repo](https://github.com/hamidzr/snap-analyzer)
     - parsing projects into words and sentences.
 tokenize and visualize the data
     - what are the probability distributions
