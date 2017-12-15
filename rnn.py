@@ -34,9 +34,10 @@ def pad_script(script):
         script.insert(0, constants.START_SYMBOL)
     return script
 
-def load_data(num_scripts=100000, padding=True):
+def load_data(file_path, num_scripts=100000, padding=False):
+    print(f'loading {num_scripts} lines of data..')
     tokens_list = []
-    with open(constants.INPUT, 'r') as f:
+    with open(file_path, 'r') as f:
         for idx, line in enumerate(f.readlines()):
             line_words = text_to_word_sequence(line, filters='\n', lower=False)
             # line_words = helpers.script_tokenizer(line)
@@ -134,9 +135,10 @@ DATASET_SIZE = 500 * 1000
 VALIDATION_SPLIT = 0.1
 ENCODER = embedding_encode
 OPTIMIZER = RMSprop(lr=0.01) # 'adam'
+DROPOUT = 0.01
+RNN_CELL = GRU
 
-print('Loading data...')
-x, word_x = load_data(num_scripts=DATASET_SIZE, padding=PADDING)
+x, word_x = load_data(constants.INPUT, num_scripts=DATASET_SIZE, padding=PADDING)
 VOCAB_SIZE = len(word_x) + 2 if (PADDING) else len(word_x) # calc vocab size
 
 ## auto set
@@ -166,7 +168,7 @@ print('Y shape', np.shape(ys))
 print('Building the model')
 model = Sequential()
 # model.add(Embedding(VOCAB_SIZE, 100, input_length=10))
-model.add(LSTM(LSTM_UNITS, input_shape=(SEQ_SIZE, BLOCK_VEC_SIZE)))
+model.add(RNN_CELL(LSTM_UNITS, dropout=DROPOUT, recurrent_dropout=0, input_shape=(SEQ_SIZE, BLOCK_VEC_SIZE)))
 model.add(Dense(BLOCK_VEC_SIZE))
 model.add(Activation('softmax'))
 
