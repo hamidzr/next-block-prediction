@@ -150,7 +150,7 @@ x_train = [helpers.script_tokenizer(script) for script in inputLines]
 if (args.mode == 'train'):
     # set vector size and min block count
     # using CBOW
-    blocks2Vec = Word2Vec(size=args.vec_size, window=2, min_count=10, sg=0, iter=10)
+    blocks2Vec = Word2Vec(size=args.vec_size, hs=0, negative=5, cbow_mean=1, window=2, min_count=10, sg=0, iter=10)
     print('building vocab.. ')
     blocks2Vec.build_vocab([x for x in tqdm(x_train)])
     print('training..')
