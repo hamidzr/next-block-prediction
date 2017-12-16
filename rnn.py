@@ -76,7 +76,7 @@ def encode_dataset(x, encoder):
                 print(e)
                 failedCounter += 1
         encodedSet.append(encoded)
-    print(f'failed to encode {failedCounter} block instances')
+    if (failedCounter > 10): print(f'failed to encode {failedCounter} block instances')
     return encodedSet
 
 
