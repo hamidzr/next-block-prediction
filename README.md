@@ -1,11 +1,12 @@
 # NextBlock prediction in NetsBlox
 
 ## Data
-snapAnalyzer [Github Repo](https://github.com/hamidzr/snap-analyzer)
+The raw dataset can be found at https://github.com/TUDelftScratchLab/ScratchDataset
+- my snap analyzer is [here](https://github.com/hamidzr/snap-analyzer)
     - parsing projects into words and sentences.
-tokenize and visualize the data
+- tokenize and visualize the data
     - what are the probability distributions
-
+    
 ## Model
 - NGrams with different Ns
 - RNN with one hot encoding
